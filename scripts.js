@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════
-// RPG CAMPAIGN MANAGER — Core
+// Quick TTRPG Manager — Core
 // Auth, DB, vues, roster, illustration, routing
 // ══════════════════════════════════════════════════════════════
 
