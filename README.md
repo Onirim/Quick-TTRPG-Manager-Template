@@ -1,4 +1,4 @@
-# RPG Campaign Manager — Template
+# Quick RPG Campaign Manager — Template
 
 Template de site de gestion de campagne pour jeux de rôle sur table.  
 Stack : HTML/CSS/JS vanilla + Supabase + GitHub Pages.
@@ -16,7 +16,7 @@ Stack : HTML/CSS/JS vanilla + Supabase + GitHub Pages.
 - i18n FR/EN
 - PWA (service worker, manifest)
 
-## Ce que tu adaptes pour chaque jeu
+## A adapter pour chaque jeu
 
 **Un seul fichier : `game-system.js`**
 
@@ -26,26 +26,31 @@ Stack : HTML/CSS/JS vanilla + Supabase + GitHub Pages.
 
 ### 1. Créer le repo GitHub
 
-- Clique sur **"Use this template"** sur GitHub
-- Donne un nom à ton repo (ex: `mon-jeu-campaign-manager`)
-- Active GitHub Pages sur la branche `main` (Settings > Pages)
+- Cliquer sur **"Use this template"** sur GitHub
+- Donner un nom au repo (ex: `mon-jeu-campaign-manager`)
+- Activer GitHub Pages sur la branche `main` (Settings > Pages)
 
-### 2. Créer le projet Supabase
+### 2. Créer l'application d'Auth Discord
+- Dans OAuth2 récupérer l'identification du client et la clé secrète
+- Dans Redictions insérer l'URL de Callback du projet Supabase (voir plus loin)
+
+### 3. Créer le projet Supabase
 
 - Nouveau projet sur [supabase.com](https://supabase.com)
-- Dans SQL Editor, exécute dans cet ordre :
+- Dans SQL Editor, exécuter dans cet ordre :
   1. `sql/00_schema.sql`
   2. `sql/01_tags.sql`
   3. `sql/02_followed.sql`
   4. `sql/03_chronicles.sql`
-  5. `sql/04_document_tags.sql`
-  6. `sql/05_storage.sql`
-  7. `sql/06_migration_campaigns.sql`
-  8. `sql/07_fix_profiles.sql`
-- Configure l'auth Discord dans Authentication > Providers
-- Ajoute l'URL GitHub Pages dans Authentication > URL Configuration
+  5. `sql/04_documents.sql`
+  6. `sql/05_document_tags.sql`
+  7. `sql/06_storage.sql`
+  8. `sql/07_migration_campaigns.sql`
+  9. `sql/08_fix_profiles-v2.sql`
+- Configurer l'auth Discord dans Authentication > Providers
+- Ajouter l'URL GitHub Pages dans Authentication > URL Configuration
 
-### 3. Remplir `supabase-client.js`
+### 4. Remplir `supabase-client.js`
 
 ```js
 const SUPABASE_URL = 'https://XXXX.supabase.co';
@@ -53,11 +58,11 @@ const SUPABASE_KEY = 'sb_publishable_XXXX';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 ```
 
-### 4. Adapter `game-system.js`
+### 5. Adapter `game-system.js`
 
-C'est le seul fichier vraiment spécifique à ton jeu. Voir la section ci-dessous.
+C'est le seul fichier vraiment spécifique au. Voir la section ci-dessous.
 
-### 5. Mettre à jour le branding
+### 6. Mettre à jour le branding
 
 Dans `index.html` :
 ```html
@@ -73,11 +78,11 @@ Dans `site.webmanifest` :
 }
 ```
 
-Dans `sw.js`, change le nom du cache :
+Dans `sw.js`, changer le nom du cache :
 ```js
 const CACHE_NAME = 'mon-jeu-v1';
 ```
-Et mets à jour `PRECACHE_ASSETS` avec le bon chemin `/mon-repo/`.
+Et mettre à jour `PRECACHE_ASSETS` avec le bon chemin `/mon-repo/`.
 
 ---
 
