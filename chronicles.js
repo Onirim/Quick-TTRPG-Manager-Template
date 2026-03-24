@@ -249,8 +249,8 @@ async function unfollowChronicle(id) {
 function renderChroniclesList() {
   const grid  = document.getElementById('chr-grid');
   const empty = document.getElementById('chr-empty-state');
-  const ownKeys      = Object.keys(chronicles);
-  const followedKeys = Object.keys(followedChronicles);
+  const ownKeys      = Object.keys(chronicles).sort((a,b) => (chronicles[a].title||'').localeCompare(chronicles[b].title||''));
+  const followedKeys = Object.keys(followedChronicles).sort((a,b) => (followedChronicles[a].title||'').localeCompare(followedChronicles[b].title||''));
   const total = ownKeys.length + followedKeys.length;
 
   document.getElementById('chr-count-badge').textContent = total ? `(${total})` : '';
