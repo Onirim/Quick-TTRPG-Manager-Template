@@ -145,13 +145,15 @@ async function deleteCharFromDB(id) {
   delete charTagMap[id];
   if (illustrationUrl) await deleteStorageFile(illustrationUrl);
   for (const tagId of tagIds) {
-    const { count } = await sb.from('character_tags')
-      .select('*', { count: 'exact', head: true }).eq('tag_id', tagId);
-    if (count === 0) {
-      await sb.from('tags').delete().eq('id', tagId);
-      allTags = allTags.filter(tg => tg.id !== tagId);
-    }
+  const { count: c1 } = await sb.from('character_tags')
+    .select('*', { count:'exact', head:true }).eq('tag_id', tagId);
+  const { count: c2 } = await sb.from('followed_character_tags')
+    .select('*', { count:'exact', head:true }).eq('tag_id', tagId);
+  if ((c1 + c2) === 0) {
+    await sb.from('tags').delete().eq('id', tagId);
+    allTags = allTags.filter(tg => tg.id !== tagId);
   }
+}
   renderList();
 }
 
