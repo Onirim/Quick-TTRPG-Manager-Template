@@ -143,8 +143,20 @@ async function deleteDocumentFromDB(id) {
   const illustrationUrl = documents[id]?.illustration_url || '';
   const { error } = await sb.from('documents').delete().eq('id', id);
   if (error) { showToast(t('toast_doc_delete_error')); return; }
+  const tagIds = docTagMap[id] || [];
   delete documents[id];
+  delete docTagMap[id];
   if (illustrationUrl) await deleteStorageFile(illustrationUrl);
+  for (const tagId of tagIds) {
+    const { count: c1 } = await sb.from('document_tags')
+      .select('*', { count:'exact', head:true }).eq('tag_id', tagId);
+    const { count: c2 } = await sb.from('followed_document_tags')
+      .select('*', { count:'exact', head:true }).eq('tag_id', tagId);
+    if ((c1 + c2) === 0) {
+      await sb.from('doc_tags').delete().eq('id', tagId);
+      allDocTags = allDocTags.filter(tg => tg.id !== tagId);
+    }
+}
   renderDocumentsList();
   showView('documents');
 }
