@@ -356,7 +356,7 @@ function campaignCardHTML(id, c, isFollowed) {
       ${desc ? `<div class="campaign-card-desc">${esc(desc)}</div>` : ''}
       <div class="campaign-card-footer">
         ${countsHtml}
-        <span class="campaign-followed-badge">👁 ${t('followed_badge')}</span>
+        <span class="campaign-followed-badge">${t('followed_badge')}</span>
         <span class="campaign-owner-label">${t('followed_owner_prefix')}${esc(c._owner_name)}</span>
       </div>
     </div>`;
