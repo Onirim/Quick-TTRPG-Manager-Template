@@ -550,7 +550,7 @@ async function uploadIllustration(input) {
   if (error) { showToast(t('toast_illus_upload_error') + error.message); return; }
   if (oldUrl && !oldUrl.includes(path)) await deleteStorageFile(oldUrl);
   const { data } = sb.storage.from('character-illustrations').getPublicUrl(path);
-  state.illustration_url      = data.publicUrl;
+  state.illustration_url      = `${data.publicUrl}?v=${Date.now()}`;
   state.illustration_position = 0;
   setIllusPreview(state.illustration_url, 0);
   updatePreview();
@@ -560,7 +560,7 @@ async function uploadIllustration(input) {
 
 async function deleteStorageFile(url) {
   if (!url) return;
-  const match = url.match(/character-illustrations\/(.+)$/);
+  const match = url.match(/character-illustrations\/([^?#]+)/);
   if (match) await sb.storage.from('character-illustrations').remove([match[1]]);
 }
 
