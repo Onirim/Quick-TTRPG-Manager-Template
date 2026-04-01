@@ -53,6 +53,7 @@ Stack : HTML/CSS/JS vanilla + Supabase + GitHub Pages.
   10. `sql/09_character_tag.sql`
   11. `sql/10_transfer.sql`
   12. `sql/11_transfer_auto_follow.sql`
+  13. `sql/12_transfer_fix_double`
 - Configurer l'auth Discord dans Authentication > Providers
 - Ajouter l'URL GitHub Pages dans Authentication > URL Configuration
 
