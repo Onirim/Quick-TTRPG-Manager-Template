@@ -1,206 +1,99 @@
 # Camply - a Lite TTRPG Campaign Manager
 
-Template de site de gestion de campagne pour jeux de rôle sur table.  
-Stack : HTML/CSS/JS vanilla + Supabase + GitHub Pages.
+Template website for managing tabletop role-playing game campaigns.
+Stack: Vanilla HTML/CSS/JS + Supabase + GitHub Pages.
+What the template manages (do not modify)
 
-## Ce que le template gère (ne pas modifier)
-
-- Auth Discord via Supabase
-- Chroniques (récits de campagne avec entrées Markdown)
-- Documents (documents Markdown partageables)
-- Campagnes (collections regroupant personnages + chroniques + documents)
-- Système de partage par code à 8 caractères
-- Abonnement aux contenus d'autres joueurs
-- Transferts de propriété des objets
-- Tags et filtres
-- Upload d'illustrations
+- Discord Auth via Supabase
+- Chronicles (campaign stories with Markdown entries)
+- Documents (shareable Markdown documents)
+- Campaigns (collections grouping characters + chronicles + documents)
+- Sharing system via 8-character code
+- Subscription to other player's content
+- Ownership transfers of objects
+- Tags and filters
+- Illustration uploads
 - i18n FR/EN
 - PWA (service worker, manifest)
 
+Optional: Adapt for your game
 
-## A adapter pour chaque jeu
+    game-system.js
+    editor.js
 
-- `game-system.js`
-- `editor.js`
+## New project setup
+1. **Create the GitHub repo**
 
----
+    Click "Use this template" on GitHub
+    Give the repo a name (e.g., my-game-campaign-manager)
+    Enable GitHub Pages on the main branch (Settings > Pages)
 
-## Setup d'un nouveau projet
+2. **Create the Discord Auth application**
 
-### 1. Créer le repo GitHub
+    In OAuth2, retrieve the client ID and secret key
+    In Redirects, insert the Callback URL of the Supabase project (see below)
 
-- Cliquer sur **"Use this template"** sur GitHub
-- Donner un nom au repo (ex: `mon-jeu-campaign-manager`)
-- Activer GitHub Pages sur la branche `main` (Settings > Pages)
+3. **Create a Supabase project (can be a free project)**
 
-### 2. Créer l'application d'Auth Discord
-- Dans OAuth2 récupérer l'identification du client et la clé secrète
-- Dans Redictions insérer l'URL de Callback du projet Supabase (voir plus loin)
+    In Supabase SQL Editor, execute in this order:
+   ```
+        sql/00_schema.sql
+        sql/01_tags.sql
+        sql/02_followed.sql
+        sql/03_chronicles.sql
+        sql/04_documents.sql
+        sql/05_document_tags.sql
+        sql/06_storage.sql
+        sql/07_migration_campaigns.sql
+        sql/08_fix_profiles-v2.sql
+        sql/09_character_tag.sql
+        sql/10_transfer.sql
+        sql/11_transfer_auto_follow.sql
+        sql/12_transfer_fix_double
+   ```
+    Configure Discord auth in Authentication > Providers
+    Add the GitHub Pages URL in Authentication > URL Configuration
 
-### 3. Créer le projet Supabase
+4. **Fill in supabase-client.js**
 
-- Nouveau projet sur [supabase.com](https://supabase.com)
-- Dans SQL Editor, exécuter dans cet ordre :
-  1. `sql/00_schema.sql`
-  2. `sql/01_tags.sql`
-  3. `sql/02_followed.sql`
-  4. `sql/03_chronicles.sql`
-  5. `sql/04_documents.sql`
-  6. `sql/05_document_tags.sql`
-  7. `sql/06_storage.sql`
-  8. `sql/07_migration_campaigns.sql`
-  9. `sql/08_fix_profiles-v2.sql`
-  10. `sql/09_character_tag.sql`
-  11. `sql/10_transfer.sql`
-  12. `sql/11_transfer_auto_follow.sql`
-  13. `sql/12_transfer_fix_double`
-- Configurer l'auth Discord dans Authentication > Providers
-- Ajouter l'URL GitHub Pages dans Authentication > URL Configuration
-
-### 4. Remplir `supabase-client.js`
-
-```js
+```
 const SUPABASE_URL = 'https://XXXX.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_XXXX';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 ```
 
-### 5. Adapter `game-system.js` et `editor.js`
+5. **Adapt game-system.js and editor.js (optional)**
 
-Ce sont les deux seuls fichier vraiment spécifiques au jeu. Voir la section ci-dessous.
+These are the only two files truly specific to the game. See the section below.
 
-### 6. Mettre à jour le branding
+6. **Update the branding**
 
-Dans `index.html` :
-```html
-<title>Mon Jeu — Gestionnaire de campagne</title>
+In index.html:
 ```
-
-Dans `site.webmanifest` :
-```json
+<title>My Game — Campaign Manager</title>
+```
+In site.webmanifest:
+```
 {
-  "name": "Mon Jeu",
-  "short_name": "Mon Jeu",
-  "start_url": "/mon-repo/"
+  "name": "My Game",
+  "short_name": "My Game",
+  "start_url": "/my-repo/"
 }
 ```
-
-Dans `sw.js`, changer le nom du cache :
-```js
-const CACHE_NAME = 'mon-jeu-v1';
+In sw.js, change the cache name:
 ```
-Et mettre à jour `PRECACHE_ASSETS` avec le bon chemin `/mon-repo/`.
-
----
-
-## Adapter `game-system.js`
-
-### Fonctions obligatoires à implémenter
-
-| Fonction / Constante | Rôle |
-|---|---|
-| `GAME_NAME` | Nom affiché dans le logo |
-| `GAME_SUBTITLE` | Sous-titre sous le logo |
-| `freshState()` | Retourne un personnage vide |
-| `renderCharCardBody(c)` | HTML de la carte dans le roster |
-| `renderCharSheet(data)` | HTML complet de la fiche (preview + vue partagée) |
-| `GAME_I18N` | Traductions FR/EN spécifiques au jeu |
-
-### Fonctions utilitaires fournies (à garder ou adapter)
-
-| Fonction | Rôle |
-|---|---|
-| `totalCost(state)` | Coût total du personnage |
-| `maxPts(state)` | Budget max en points |
-| `calcAptPts(state)` | Points d'aptitudes utilisés |
-| `maxAptPts(state)` | Budget max en aptitudes |
-| `powerCost(p)` | Coût d'un pouvoir |
-
-### Exemple minimal pour un jeu simple (sans pouvoirs)
-
-```js
-const GAME_NAME     = 'Mon JDR';
-const GAME_SUBTITLE = 'Gestionnaire de campagne';
-
-function freshState() {
-  return {
-    name: '', subtitle: '', level: 1,
-    strength: 10, dexterity: 10, intelligence: 10,
-    is_public: false, illustration_url: '', illustration_position: 0,
-    tags: [], background: '',
-  };
-}
-
-function renderCharCardBody(c) {
-  return `
-    <div class="card-name">${esc(c.name) || '—'}</div>
-    <div class="card-sub">${esc(c.subtitle) || ''}</div>
-    <div class="card-rank">Niveau ${c.level}</div>
-    <div class="card-attrs">
-      <div class="card-attr e">
-        <div class="val">${c.strength}</div>
-        <div class="lbl">FOR</div>
-      </div>
-      <div class="card-attr r">
-        <div class="val">${c.dexterity}</div>
-        <div class="lbl">DEX</div>
-      </div>
-      <div class="card-attr v">
-        <div class="val">${c.intelligence}</div>
-        <div class="lbl">INT</div>
-      </div>
-    </div>
-  `;
-}
-
-function renderCharSheet(data) {
-  return `
-    <div class="preview-header">
-      <div class="preview-name">${esc(data.name) || '—'}</div>
-      <div class="preview-rank-badge">Niveau ${data.level}</div>
-    </div>
-    <!-- ... le reste de ta fiche ... -->
-  `;
-}
-
-const GAME_I18N = {
-  fr: { alert_char_no_name: 'Donnez un nom au personnage.' },
-  en: { alert_char_no_name: 'Please name the character.' },
-};
-
-Object.keys(GAME_I18N).forEach(lang => {
-  if (TRANSLATIONS[lang]) Object.assign(TRANSLATIONS[lang], GAME_I18N[lang]);
-});
+const CACHE_NAME = 'my-game-v1';
 ```
+And update PRECACHE_ASSETS with the correct path /my-repo/.
 
----
+## Adapt game-system.js:
+Mandatory functions to implement
+| Function |  Constant Role |
+| --- | --- |
+| GAME_NAME |	Name displayed in the logo |
+| GAME_SUBTITLE	| Subtitle under the logo |
+| freshState()	| Returns an empty character |
+| renderCharCardBody(c)	| HTML of the card in the roster |
+| renderCharSheet(data)	| Complete sheet HTML (preview + shared view) |
+| GAME_I18N	| FR/EN translations specific to the game |
 
-## Ordre de chargement des scripts dans `index.html`
-
-```html
-<script src="i18n.js"></script>        <!-- en premier, toujours -->
-<script src="supabase-client.js"></script>
-<script src="game-system.js"></script> <!-- avant editor.js et scripts.js -->
-<script src="chronicles.js"></script>
-<script src="documents.js"></script>
-<script src="campaigns.js"></script>
-<script src="tags.js"></script>
-<script src="editor.js"></script>
-<script src="transfer.js"></script>
-<script src="scripts.js"></script>     <!-- en dernier -->
-```
-
----
-
-## Checklist de lancement
-
-- [ ] Repo GitHub créé depuis le template
-- [ ] GitHub Pages activé
-- [ ] Projet Supabase créé
-- [ ] 8 fichiers SQL exécutés dans l'ordre
-- [ ] Auth Discord configurée dans Supabase
-- [ ] `supabase-client.js` rempli
-- [ ] `game-system.js` adapté au jeu
-- [ ] Branding mis à jour (`index.html`, `site.webmanifest`, `sw.js`)
-- [ ] Test de connexion Discord
-- [ ] Test de création d'un personnage
