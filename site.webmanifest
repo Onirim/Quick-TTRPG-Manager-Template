@@ -1,23 +1,23 @@
 {
-  "name": "Loremaster TTRPG Manager",
-  "short_name": "LoreM",
+  "name": "Camply TTRPG Manager",
+  "short_name": "Camply",
   "description": "Gestionnaire de campagne pour jeux de rôles",
   "lang": "fr",
-  "start_url": "/Loremaster/",
-  "scope": "/Loremaster/",
+  "start_url": "/Camply/",
+  "scope": "/Camply/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "theme_color": "#0e0f13",
   "background_color": "#0e0f13",
   "icons": [
     {
-      "src": "/Loremaster/android-chrome-192x192.png",
+      "src": "/Camply/android-chrome-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/Loremaster/android-chrome-512x512.png",
+      "src": "/Camply/android-chrome-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
