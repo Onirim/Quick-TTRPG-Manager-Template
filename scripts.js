@@ -217,11 +217,19 @@ async function followCharByCode(code) {
   if (error || !data) { showToast(t('toast_char_not_found')); return; }
   if (data.user_id === currentUser.id) { showToast(t('toast_char_own')); return; }
   if (followedIds.includes(data.id))  { showToast(t('toast_char_already_followed')); return; }
+ 
   const { error: insertError } = await sb.from('followed_characters')
     .insert({ user_id: currentUser.id, character_id: data.id });
   if (insertError) { showToast(t('toast_char_follow_error')); return; }
+ 
   followedIds.push(data.id);
+ 
+  // ── NOUVEAU : sync des tags du propriétaire ───────────────
+  await syncOwnerTagsToMe('char', data.id);
+  // ─────────────────────────────────────────────────────────
+ 
   await loadFollowedCharsFromDB();
+  await loadTagsFromDB();                 // recharge allTags avec les nouveaux tags créés
   document.getElementById('follow-code-input').value = '';
   renderList();
   showToast(ti('toast_char_added', { name: data.name }));
