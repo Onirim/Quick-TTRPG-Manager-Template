@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════
-// Mystic Falls — Module Règles du jeu
+// Camply — Module Règles du jeu
 // Charge rulebook.md depuis la racine, rend le Markdown,
 // et construit un index latéral (H1 / H2 / H3) avec
 // suivi de la position de lecture.
