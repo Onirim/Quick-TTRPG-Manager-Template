@@ -1,14 +1,15 @@
 -- ══════════════════════════════════════════════════════════════
--- ENERGY SYSTEM — Sync des tags propriétaire → abonnés
--- Lorsqu'un joueur s'abonne à un objet, les tags attribués
--- par le propriétaire sont copiés dans ses tags locaux.
--- Un tag inexistant chez l'abonné est créé à la volée.
+-- ENERGY SYSTEM — Patch : sync tags propriétaire → abonnés (v2)
+-- Corrections :
+--   1. Signature RPC compatible PostgREST (p_item_id en TEXT
+--      pour éviter les erreurs de cast depuis le JS, converti
+--      en UUID en interne)
+--   2. Fonction cleanup_follower_tags : supprime les tags
+--      devenus orphelins quand un abonné se désabonne ou
+--      retire un tag local
 -- ══════════════════════════════════════════════════════════════
 
--- ── Personnages ───────────────────────────────────────────────
--- Appelée après INSERT dans followed_characters.
--- Copie les tags owner (character_tags → tags) vers
--- followed_character_tags (en créant les tags si besoin).
+-- ── 1. sync_char_tags_to_follower ─────────────────────────────
 
 CREATE OR REPLACE FUNCTION public.sync_char_tags_to_follower(
   p_character_id UUID,
@@ -20,40 +21,37 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  r RECORD;
+  r            RECORD;
   v_new_tag_id UUID;
 BEGIN
-  -- Parcourt tous les tags associés au personnage par son propriétaire
   FOR r IN
     SELECT t.name, t.color
-    FROM public.character_tags ct
-    JOIN public.tags t ON t.id = ct.tag_id
-    WHERE ct.character_id = p_character_id
+    FROM   public.character_tags ct
+    JOIN   public.tags t ON t.id = ct.tag_id
+    WHERE  ct.character_id = p_character_id
   LOOP
-    -- Cherche si l'abonné possède déjà un tag du même nom
+    -- Cherche un tag du même nom chez l'abonné
     SELECT id INTO v_new_tag_id
-    FROM public.tags
-    WHERE user_id = p_follower_id
-      AND lower(name) = lower(r.name)
+    FROM   public.tags
+    WHERE  user_id = p_follower_id
+      AND  lower(name) = lower(r.name)
     LIMIT 1;
 
-    -- Sinon, crée-le avec la même couleur que l'original
+    -- Crée-le si absent
     IF v_new_tag_id IS NULL THEN
       INSERT INTO public.tags (user_id, name, color)
       VALUES (p_follower_id, r.name, r.color)
       ON CONFLICT (user_id, name) DO NOTHING
       RETURNING id INTO v_new_tag_id;
 
-      -- En cas de conflit (race condition), récupère l'id existant
       IF v_new_tag_id IS NULL THEN
         SELECT id INTO v_new_tag_id
-        FROM public.tags
-        WHERE user_id = p_follower_id AND lower(name) = lower(r.name)
+        FROM   public.tags
+        WHERE  user_id = p_follower_id AND lower(name) = lower(r.name)
         LIMIT 1;
       END IF;
     END IF;
 
-    -- Ajoute la liaison dans followed_character_tags (ignore les doublons)
     IF v_new_tag_id IS NOT NULL THEN
       INSERT INTO public.followed_character_tags (user_id, character_id, tag_id)
       VALUES (p_follower_id, p_character_id, v_new_tag_id)
@@ -66,7 +64,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.sync_char_tags_to_follower(UUID, UUID) TO authenticated;
 
 
--- ── Documents ─────────────────────────────────────────────────
+-- ── 2. sync_doc_tags_to_follower ──────────────────────────────
 
 CREATE OR REPLACE FUNCTION public.sync_doc_tags_to_follower(
   p_document_id UUID,
@@ -78,19 +76,19 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  r RECORD;
+  r            RECORD;
   v_new_tag_id UUID;
 BEGIN
   FOR r IN
     SELECT t.name, t.color
-    FROM public.document_tags dt
-    JOIN public.doc_tags t ON t.id = dt.tag_id
-    WHERE dt.document_id = p_document_id
+    FROM   public.document_tags dt
+    JOIN   public.doc_tags t ON t.id = dt.tag_id
+    WHERE  dt.document_id = p_document_id
   LOOP
     SELECT id INTO v_new_tag_id
-    FROM public.doc_tags
-    WHERE user_id = p_follower_id
-      AND lower(name) = lower(r.name)
+    FROM   public.doc_tags
+    WHERE  user_id = p_follower_id
+      AND  lower(name) = lower(r.name)
     LIMIT 1;
 
     IF v_new_tag_id IS NULL THEN
@@ -101,8 +99,8 @@ BEGIN
 
       IF v_new_tag_id IS NULL THEN
         SELECT id INTO v_new_tag_id
-        FROM public.doc_tags
-        WHERE user_id = p_follower_id AND lower(name) = lower(r.name)
+        FROM   public.doc_tags
+        WHERE  user_id = p_follower_id AND lower(name) = lower(r.name)
         LIMIT 1;
       END IF;
     END IF;
@@ -119,18 +117,16 @@ $$;
 GRANT EXECUTE ON FUNCTION public.sync_doc_tags_to_follower(UUID, UUID) TO authenticated;
 
 
--- ── RPC publique : sync_owner_tags ────────────────────────────
--- Point d'entrée appelé depuis le JS via sb.rpc().
--- Paramètres :
---   p_item_type  : 'char' | 'doc'
---   p_item_id    : UUID de l'objet
---
--- Sécurité : vérifie que l'appelant est bien un abonné de l'objet
--- (ou propriétaire, pour forcer une re-sync manuelle).
+-- ── 3. sync_owner_tags — RPC principale ───────────────────────
+-- p_item_id est déclaré en TEXT pour éviter les erreurs de cast
+-- PostgREST quand le JS envoie une chaîne UUID.
+
+DROP FUNCTION IF EXISTS public.sync_owner_tags(TEXT, UUID);
+DROP FUNCTION IF EXISTS public.sync_owner_tags(TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION public.sync_owner_tags(
   p_item_type TEXT,
-  p_item_id   UUID
+  p_item_id   TEXT   -- reçu comme TEXT depuis PostgREST, converti en UUID en interne
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -139,35 +135,42 @@ SET search_path = public
 AS $$
 DECLARE
   v_caller_id UUID := auth.uid();
+  v_uuid      UUID;
 BEGIN
   IF v_caller_id IS NULL THEN
     RETURN jsonb_build_object('ok', false, 'error', 'not_authenticated');
   END IF;
 
+  -- Cast sécurisé TEXT → UUID
+  BEGIN
+    v_uuid := p_item_id::UUID;
+  EXCEPTION WHEN invalid_text_representation THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_uuid');
+  END;
+
   IF p_item_type = 'char' THEN
-    -- Vérifie que l'appelant est bien abonné (ou propriétaire)
     IF NOT EXISTS (
       SELECT 1 FROM public.followed_characters
-      WHERE user_id = v_caller_id AND character_id = p_item_id
+      WHERE  user_id = v_caller_id AND character_id = v_uuid
     ) AND NOT EXISTS (
       SELECT 1 FROM public.characters
-      WHERE id = p_item_id AND user_id = v_caller_id
+      WHERE  id = v_uuid AND user_id = v_caller_id
     ) THEN
       RETURN jsonb_build_object('ok', false, 'error', 'not_follower');
     END IF;
-    PERFORM public.sync_char_tags_to_follower(p_item_id, v_caller_id);
+    PERFORM public.sync_char_tags_to_follower(v_uuid, v_caller_id);
 
   ELSIF p_item_type = 'doc' THEN
     IF NOT EXISTS (
       SELECT 1 FROM public.followed_documents
-      WHERE user_id = v_caller_id AND document_id = p_item_id
+      WHERE  user_id = v_caller_id AND document_id = v_uuid
     ) AND NOT EXISTS (
       SELECT 1 FROM public.documents
-      WHERE id = p_item_id AND user_id = v_caller_id
+      WHERE  id = v_uuid AND user_id = v_caller_id
     ) THEN
       RETURN jsonb_build_object('ok', false, 'error', 'not_follower');
     END IF;
-    PERFORM public.sync_doc_tags_to_follower(p_item_id, v_caller_id);
+    PERFORM public.sync_doc_tags_to_follower(v_uuid, v_caller_id);
 
   ELSE
     RETURN jsonb_build_object('ok', false, 'error', 'invalid_type');
@@ -177,22 +180,74 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.sync_owner_tags(TEXT, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sync_owner_tags(TEXT, TEXT) TO authenticated;
 
 
--- ══════════════════════════════════════════════════════════════
--- Résumé :
---
---  sync_char_tags_to_follower(char_id, follower_id)
---    Interne. Copie les tags owner d'un personnage vers un abonné.
---    Crée le tag dans la table `tags` de l'abonné si absent.
---
---  sync_doc_tags_to_follower(doc_id, follower_id)
---    Interne. Idem pour les documents (table `doc_tags`).
---
---  sync_owner_tags(type, item_id)   ← appelée depuis le JS
---    Wrapper sécurisé qui vérifie l'abonnement puis délègue.
---
--- Note : les chroniques n'ont pas de système de tags dans le
--- schéma actuel, elles sont donc ignorées ici.
--- ══════════════════════════════════════════════════════════════
+-- ── 4. cleanup_orphan_char_tags ───────────────────────────────
+-- Supprime les tags de l'abonné (table `tags`) qui ne sont plus
+-- utilisés nulle part après un désabonnement ou un retrait de tag.
+-- Appelée depuis le JS après unfollowChar() ou removeFollowedTag().
+
+CREATE OR REPLACE FUNCTION public.cleanup_orphan_char_tags(
+  p_user_id UUID
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_tag_id UUID;
+BEGIN
+  FOR v_tag_id IN
+    -- Tags de cet utilisateur qui ne sont plus liés à rien
+    SELECT t.id
+    FROM   public.tags t
+    WHERE  t.user_id = p_user_id
+      AND  NOT EXISTS (
+             SELECT 1 FROM public.character_tags ct WHERE ct.tag_id = t.id
+           )
+      AND  NOT EXISTS (
+             SELECT 1 FROM public.followed_character_tags fct
+             WHERE  fct.tag_id = t.id AND fct.user_id = p_user_id
+           )
+  LOOP
+    DELETE FROM public.tags WHERE id = v_tag_id AND user_id = p_user_id;
+  END LOOP;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.cleanup_orphan_char_tags(UUID) TO authenticated;
+
+
+-- ── 5. cleanup_orphan_doc_tags ────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.cleanup_orphan_doc_tags(
+  p_user_id UUID
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_tag_id UUID;
+BEGIN
+  FOR v_tag_id IN
+    SELECT t.id
+    FROM   public.doc_tags t
+    WHERE  t.user_id = p_user_id
+      AND  NOT EXISTS (
+             SELECT 1 FROM public.document_tags dt WHERE dt.tag_id = t.id
+           )
+      AND  NOT EXISTS (
+             SELECT 1 FROM public.followed_document_tags fdt
+             WHERE  fdt.tag_id = t.id AND fdt.user_id = p_user_id
+           )
+  LOOP
+    DELETE FROM public.doc_tags WHERE id = v_tag_id AND user_id = p_user_id;
+  END LOOP;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.cleanup_orphan_doc_tags(UUID) TO authenticated;
