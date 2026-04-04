@@ -16,6 +16,7 @@ const PRECACHE_ASSETS = [
   '/site-name/chronicles.css',
   '/site-name/documents.css',
   '/site-name/campaigns.css',
+  '/site-name/transfert.css',
   '/site-name/i18n.js',
   '/site-name/supabase-client.js',
   '/site-name/scripts.js',
@@ -24,6 +25,7 @@ const PRECACHE_ASSETS = [
   '/site-name/documents.js',
   '/site-name/campaigns.js',
   '/site-name/tags.js',
+  '/site-name/transfert.js'
 ];
 
 // ── Installation : pré-cache des assets statiques ─────────────
