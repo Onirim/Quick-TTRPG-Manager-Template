@@ -1,12 +1,10 @@
 // ══════════════════════════════════════════════════════════════
-// Camply TTRPG Manager — Éditeur de personnage
-// Les calculs de points et le rendu de fiche sont délégués
-// à game-system.js. Ce fichier gère uniquement l'UI de l'éditeur.
+// Camply TTRPG Manager — Éditeur générique
 // ══════════════════════════════════════════════════════════════
 
 function newChar() {
   editingId = null;
-  state     = freshState();         // défini dans game-system.js
+  state     = freshState();
   populateEditor();
   showView('editor');
 }
@@ -15,12 +13,11 @@ function editChar(id, dataOverride) {
   editingId = id;
   const src = dataOverride || (id ? chars[id] : null) || freshState();
   state = JSON.parse(JSON.stringify(src));
-  // Champs qui doivent toujours exister
-  if (!state.aptitudes)     state.aptitudes     = {};
-  if (!state.powers)        state.powers        = [];
-  if (!state.traits)        state.traits        = [];
-  if (!state.complications) state.complications = [];
-  if (!state.tags)          state.tags          = [];
+  if (!state.characteristics) state.characteristics = [];
+  if (!state.skills)          state.skills          = [];
+  if (!state.traits)          state.traits          = [];
+  if (!state.tags)            state.tags            = [];
+  if (!state.level)           state.level           = 1;
   if (editingId && charTagMap[editingId]) {
     state.tags = charTagMap[editingId]
       .map(tid => allTags.find(tg => tg.id === tid))
@@ -31,10 +28,12 @@ function editChar(id, dataOverride) {
 }
 
 function populateEditor() {
-  document.getElementById('f-name').value     = state.name || '';
-  document.getElementById('f-sub').value      = state.subtitle || '';
-  document.getElementById('f-rank').value     = state.rank || 5;
-  document.getElementById('f-maturity').value = state.maturity || 'adulte';
+  document.getElementById('f-name').value      = state.name || '';
+  document.getElementById('f-sub').value       = state.subtitle || '';
+  document.getElementById('f-race-class').value = state.race_class || '';
+  document.getElementById('f-level').value      = state.level ?? 1;
+  const lvlDisplay = document.getElementById('level-display');
+  if (lvlDisplay) lvlDisplay.textContent = state.level ?? 1;
 
   const pubCb = document.getElementById('f-public');
   if (pubCb) {
@@ -44,29 +43,19 @@ function populateEditor() {
   }
   _updateShareCodeBox();
 
-  document.getElementById('val-e').textContent = state.energy;
-  document.getElementById('val-r').textContent = state.recovery;
-  document.getElementById('val-v').textContent = state.vigor;
-
-  renderPowers();
-  renderAptitudes();
+  renderCharacteristics();
+  renderSkills();
   renderTraits();
-  renderComplications();
 
   const bgField = document.getElementById('f-background');
   if (bgField) bgField.value = state.background || '';
 
-  document.getElementById('xp-hero-val').textContent = state.xp_hero || 0;
-  document.getElementById('xp-apt-val').textContent  = state.xp_apt  || 0;
-
   renderTagChips();
   setIllusPreview(state.illustration_url || '', state.illustration_position || 0);
   updatePreview();
-  updatePtsDisplay();
-  updateAptPtsDisplay();
 }
 
-// ── Share code box ─────────────────────────────────────────────
+// ── Share code ────────────────────────────────────────────────
 function _updateShareCodeBox() {
   const scBox = document.getElementById('share-code-box');
   const scVal = document.getElementById('share-code-val');
@@ -80,169 +69,134 @@ function _updateShareCodeBox() {
   }
 }
 
-// ── Attributs ─────────────────────────────────────────────────
-function changeAttr(attr, delta) {
-  const key = { e: 'energy', r: 'recovery', v: 'vigor' }[attr];
-  const nv  = Math.max(1, state[key] + delta);
-  if (attr === 'r' && nv > state.energy) return;
-  state[key] = nv;
-  document.getElementById('val-' + attr).textContent = nv;
-  updatePtsDisplay();
-  updatePreview();
+
+// ══════════════════════════════════════════════════════════════
+// CARACTÉRISTIQUES
+// ══════════════════════════════════════════════════════════════
+
+function renderCharacteristics() {
+  const list = document.getElementById('characteristics-list');
+  if (!list) return;
+  list.innerHTML = (state.characteristics || []).map((ch, i) => characteristicHTML(ch, i)).join('');
 }
 
-function updatePtsDisplay() {
-  const used = totalCost(state);   // game-system.js
-  const max  = maxPts(state);      // game-system.js
-  const el   = document.getElementById('pts-display');
-  el.textContent = `${used} / ${max}`;
-  el.className   = 'pts-value ' + (used > max ? 'over' : 'ok');
-
-  const attrCosts = { e: 2, r: 3, v: 1 };
-  const attrKeys  = { e: 'energy', r: 'recovery', v: 'vigor' };
-  ['e', 'r', 'v'].forEach(a => {
-    document.getElementById('cost-' + a).textContent =
-      `${state[attrKeys[a]] * attrCosts[a]} pts`;
-  });
-}
-
-function updateRankMax() {
-  state.rank = parseInt(document.getElementById('f-rank').value);
-  updatePtsDisplay();
-  updatePreview();
-}
-
-// ── Pouvoirs ──────────────────────────────────────────────────
-function renderPowers() {
-  document.getElementById('powers-list').innerHTML =
-    state.powers.map((p, i) => powerEntryHTML(p, i)).join('');
-}
-
-function powerEntryHTML(p, i) {
-  const typeOpts = POWER_TYPES().map(pt =>    // game-system.js
-    `<option value="${pt.value}" ${p.type === pt.value ? 'selected' : ''}>
-      ${pt.label} — ${pt.desc}
-    </option>`
-  ).join('');
-  const modOpts = MOD_OPTIONS().map(m =>       // game-system.js
-    `<option value="${m.value}" ${p.mod === m.value ? 'selected' : ''}>${m.label}</option>`
-  ).join('');
-
-  return `<div class="power-entry" id="pow-${i}">
-    <div class="power-entry-header">
+function characteristicHTML(ch, i) {
+  return `<div class="generic-entry" id="char-entry-${i}">
+    <div class="generic-entry-row">
       <input type="text"
-        placeholder="${t('editor_power_name_ph')}"
-        value="${esc(p.name || '')}"
-        oninput="state.powers[${i}].name=this.value;updatePreview()">
-      <button class="rm-btn" onclick="removePower(${i})">
+        class="generic-input"
+        placeholder="${t('editor_char_name_ph')}"
+        value="${esc(ch.name || '')}"
+        oninput="state.characteristics[${i}].name=this.value;updatePreview()">
+      <input type="text"
+        class="generic-input trigram-input"
+        placeholder="${t('editor_char_trigram_ph')}"
+        maxlength="3"
+        value="${esc(ch.trigram || '')}"
+        oninput="this.value=this.value.toUpperCase();state.characteristics[${i}].trigram=this.value;updatePreview()">
+      <div class="score-ctrl">
+        <button onclick="changeScore('characteristics',${i},-1,event)">−</button>
+        <div class="score-val">${ch.score ?? 0}</div>
+        <button onclick="changeScore('characteristics',${i},1,event)">+</button>
+      </div>
+      <button class="rm-btn" onclick="removeCharacteristic(${i})">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
           <line x1="3" y1="3" x2="13" y2="13"/>
           <line x1="13" y1="3" x2="3" y2="13"/>
         </svg>
       </button>
     </div>
-    <div class="power-entry-footer">
-      <select onchange="state.powers[${i}].type=this.value;updatePreview()">${typeOpts}</select>
-      <select class="mod-select"
-        onchange="state.powers[${i}].mod=this.value;updatePtsDisplay();updatePreview()">
-        ${modOpts}
-      </select>
-      <div class="power-cost-display">${powerCost(p)} pts</div>
-    </div>
-    <div style="margin-top:7px">
-      <input type="text"
-        placeholder="${t('editor_power_desc_ph')}"
-        style="width:100%;background:var(--bg4);border:1px solid var(--border);border-radius:4px;
-               color:var(--text);font-size:12px;padding:5px 8px;outline:none"
-        value="${esc(p.desc || '')}"
-        oninput="state.powers[${i}].desc=this.value;updatePreview()"
-        onfocus="this.style.borderColor='var(--accent)'"
-        onblur="this.style.borderColor='var(--border)'">
-    </div>
   </div>`;
 }
 
-function addPower() {
-  state.powers.push({ name: '', type: 'offc', mod: '0', desc: '' });
-  renderPowers();
-  updatePtsDisplay();
-  updatePreview();
-}
-function removePower(i) {
-  state.powers.splice(i, 1);
-  renderPowers();
-  updatePtsDisplay();
+function addCharacteristic() {
+  if ((state.characteristics || []).length >= 12) return;
+  state.characteristics.push({ id: _uid(), name: '', trigram: '', score: 0 });
+  renderCharacteristics();
   updatePreview();
 }
 
-// ── Aptitudes ─────────────────────────────────────────────────
-function renderAptitudes() {
-  const grid    = document.getElementById('aptitude-grid');
-  const aptList = APTITUDES();               // game-system.js
-  const half    = Math.ceil(aptList.length / 2);
-  const left    = aptList.slice(0, half);
-  const right   = aptList.slice(half);
-
-  const cell = (label, frKey) => label ? `
-    <div class="apt-row">
-      <div class="apt-name">${label}</div>
-      <div class="apt-ctrl">
-        <button onclick="changeApt('${frKey}', -1)">−</button>
-        <div class="apt-val ${(state.aptitudes[frKey] || 0) === 0 ? 'zero' : ''}"
-          id="apt-${frKey.replace(/\s/g, '_')}">
-          ${state.aptitudes[frKey] || 0}
-        </div>
-        <button onclick="changeApt('${frKey}', 1)">+</button>
-      </div>
-    </div>` : '<div></div>';
-
-  let rows = '';
-  for (let i = 0; i < Math.max(left.length, right.length); i++) {
-    const keyL = left[i]  ? APTITUDES_KEYS[i]        : null;
-    const keyR = right[i] ? APTITUDES_KEYS[i + half] : null;
-    rows += cell(left[i], keyL) + '<div class="aptitude-col-sep"></div>' + cell(right[i], keyR);
-  }
-  grid.innerHTML = rows;
-}
-
-function changeApt(frKey, delta) {
-  const nv = Math.max(0, (state.aptitudes[frKey] || 0) + delta);
-  state.aptitudes[frKey] = nv;
-  const el = document.getElementById(`apt-${frKey.replace(/\s/g, '_')}`);
-  if (el) { el.textContent = nv; el.className = `apt-val ${nv === 0 ? 'zero' : ''}`; }
-  updateAptPtsDisplay();
+function removeCharacteristic(i) {
+  state.characteristics.splice(i, 1);
+  renderCharacteristics();
   updatePreview();
 }
 
-function updateAptPtsDisplay() {
-  const used = calcAptPts(state);    // game-system.js
-  const max  = maxAptPts(state);     // game-system.js
-  const el   = document.getElementById('apt-pts-display');
-  el.textContent = `${used} / ${max}`;
-  el.className   = `val ${used > max ? 'over' : 'ok'}`;
+
+// ══════════════════════════════════════════════════════════════
+// COMPÉTENCES
+// ══════════════════════════════════════════════════════════════
+
+function renderSkills() {
+  const list = document.getElementById('skills-list');
+  if (!list) return;
+  list.innerHTML = (state.skills || []).map((sk, i) => skillHTML(sk, i)).join('');
 }
 
-// ── Traits ────────────────────────────────────────────────────
+function skillHTML(sk, i) {
+  return `<div class="generic-entry skill-entry">
+    <input type="text"
+      class="generic-input"
+      placeholder="${t('editor_skill_name_ph')}"
+      value="${esc(sk.name || '')}"
+      style="flex:1"
+      oninput="state.skills[${i}].name=this.value;updatePreview()">
+    <div class="score-ctrl">
+      <button onclick="changeScore('skills',${i},-1,event)">−</button>
+      <div class="score-val">${sk.score ?? 0}</div>
+      <button onclick="changeScore('skills',${i},1,event)">+</button>
+    </div>
+    <button class="rm-btn" onclick="removeSkill(${i})">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <line x1="3" y1="3" x2="13" y2="13"/>
+        <line x1="13" y1="3" x2="3" y2="13"/>
+      </svg>
+    </button>
+  </div>`;
+}
+
+function addSkill() {
+  state.skills.push({ id: _uid(), name: '', score: 0 });
+  renderSkills();
+  updatePreview();
+}
+
+function removeSkill(i) {
+  state.skills.splice(i, 1);
+  renderSkills();
+  updatePreview();
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// AUTRES TRAITS
+// ══════════════════════════════════════════════════════════════
+
 function renderTraits() {
-  document.getElementById('traits-list').innerHTML = (state.traits || []).map((tr, i) => `
-    <div class="trait-row">
-      <input class="trait-name" type="text"
+  const list = document.getElementById('traits-list');
+  if (!list) return;
+  list.innerHTML = (state.traits || []).map((tr, i) => traitHTML(tr, i)).join('');
+}
+
+function traitHTML(tr, i) {
+  return `<div class="generic-entry trait-entry">
+    <div class="generic-entry-row" style="gap:6px">
+      <input type="text"
+        class="generic-input"
+        placeholder="${t('editor_trait_type_ph')}"
+        value="${esc(tr.type || '')}"
+        style="width:140px;flex-shrink:0"
+        oninput="state.traits[${i}].type=this.value;updatePreview()">
+      <input type="text"
+        class="generic-input"
         placeholder="${t('editor_trait_name_ph')}"
         value="${esc(tr.name || '')}"
+        style="flex:1"
         oninput="state.traits[${i}].name=this.value;updatePreview()">
-      <div class="trait-bonus">
-        <button style="width:22px;height:22px;border-radius:3px;background:var(--bg4);
-          border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;
-          display:flex;align-items:center;justify-content:center"
-          onclick="changeTrait(${i}, -1)">−</button>
-        <div class="trait-bonus-val">+${tr.bonus || 1}</div>
-        <button style="width:22px;height:22px;border-radius:3px;background:var(--bg4);
-          border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;
-          display:flex;align-items:center;justify-content:center"
-          onclick="changeTrait(${i}, 1)">+</button>
-        <span style="font-size:10px;color:var(--text3);margin-left:2px">
-          ${tr.bonus || 1} pt${(tr.bonus || 1) > 1 ? 's' : ''}
-        </span>
+      <div class="score-ctrl">
+        <button onclick="changeScore('traits',${i},-1,event)">−</button>
+        <div class="score-val trait-score">${tr.score || '—'}</div>
+        <button onclick="changeScore('traits',${i},1,event)">+</button>
       </div>
       <button class="rm-btn" onclick="removeTrait(${i})">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -250,96 +204,89 @@ function renderTraits() {
           <line x1="13" y1="3" x2="3" y2="13"/>
         </svg>
       </button>
-    </div>`).join('');
+    </div>
+    <textarea
+      class="generic-textarea"
+      placeholder="${t('editor_trait_detail_ph')}"
+      oninput="state.traits[${i}].detail=this.value;updatePreview()">${esc(tr.detail || '')}</textarea>
+  </div>`;
 }
 
 function addTrait() {
-  state.traits.push({ name: '', bonus: 1 });
+  state.traits.push({ id: _uid(), type: '', name: '', detail: '', score: '' });
   renderTraits();
-  updateAptPtsDisplay();
   updatePreview();
 }
+
 function removeTrait(i) {
   state.traits.splice(i, 1);
   renderTraits();
-  updateAptPtsDisplay();
-  updatePreview();
-}
-function changeTrait(i, delta) {
-  state.traits[i].bonus = Math.max(1, (state.traits[i].bonus || 1) + delta);
-  renderTraits();
-  updateAptPtsDisplay();
   updatePreview();
 }
 
-// ── Expérience ────────────────────────────────────────────────
-function changeXP(type, delta) {
-  const key  = type === 'hero' ? 'xp_hero' : 'xp_apt';
-  const elId = type === 'hero' ? 'xp-hero-val' : 'xp-apt-val';
-  state[key] = Math.max(0, (state[key] || 0) + delta);
-  document.getElementById(elId).textContent = state[key];
-  if (type === 'hero') updatePtsDisplay();
-  else updateAptPtsDisplay();
+
+// ══════════════════════════════════════════════════════════════
+// SCORE UNIVERSEL (caractéristiques, compétences, traits)
+// Shift+clic → ±10 ; clic normal → ±1
+// Pour les traits : le score est optionnel (chaîne vide = pas de score)
+// ══════════════════════════════════════════════════════════════
+
+function changeScore(section, idx, delta, event) {
+  const step = (event && event.shiftKey) ? delta * 10 : delta;
+  const item = state[section][idx];
+
+  if (section === 'traits') {
+    // Score optionnel : si vide, on démarre à 0
+    const current = item.score === '' || item.score === undefined ? 0 : parseInt(item.score) || 0;
+    const nv = current + step;
+    item.score = nv === 0 ? '' : nv;
+  } else {
+    item.score = Math.max(0, (parseInt(item.score) || 0) + step);
+  }
+
+  // Rafraîchit uniquement la valeur affichée (évite de redessiner tout le DOM)
+  const container = document.getElementById(
+    section === 'characteristics' ? `char-entry-${idx}` : null
+  );
+  const scoreEl = event?.target?.closest('.generic-entry')?.querySelector('.score-val');
+  if (scoreEl) {
+    scoreEl.textContent = item.score === '' ? '—' : item.score;
+  }
+
+  // Pour les caractéristiques, re-render complet (met aussi à jour le preview)
+  if (section === 'characteristics') renderCharacteristics();
+  if (section === 'skills')          renderSkills();
+  if (section === 'traits')          renderTraits();
+
   updatePreview();
 }
 
-// ── Complications ─────────────────────────────────────────────
-function renderComplications() {
-  document.getElementById('complications-list').innerHTML = (state.complications || []).map((c, i) => {
-    const label  = typeof c === 'object' ? (c.label  || '') : c;
-    const detail = typeof c === 'object' ? (c.detail || '') : '';
-    return `<div class="compl-entry">
-      <div class="compl-entry-header">
-        <input type="text"
-          placeholder="${t('editor_complication_name_ph')}"
-          value="${esc(label)}"
-          oninput="setComplLabel(${i}, this.value)">
-        <button class="rm-btn" onclick="removeComplication(${i})">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-            <line x1="3" y1="3" x2="13" y2="13"/>
-            <line x1="13" y1="3" x2="3" y2="13"/>
-          </svg>
-        </button>
-      </div>
-      <textarea
-        placeholder="${t('editor_complication_detail_ph')}"
-        oninput="setComplDetail(${i}, this.value)">${esc(detail)}</textarea>
-    </div>`;
-  }).join('');
-  document.getElementById('add-compl-btn').style.display =
-    (state.complications || []).length >= 5 ? 'none' : 'block';
-}
 
-function setComplLabel(i, val) {
-  if (typeof state.complications[i] !== 'object')
-    state.complications[i] = { label: '', detail: '' };
-  state.complications[i].label = val;
-  updatePreview();
-}
-function setComplDetail(i, val) {
-  if (typeof state.complications[i] !== 'object')
-    state.complications[i] = { label: '', detail: '' };
-  state.complications[i].detail = val;
-  updatePreview();
-}
-function addComplication() {
-  if ((state.complications || []).length >= 5) return;
-  state.complications.push({ label: '', detail: '' });
-  renderComplications();
-}
-function removeComplication(i) {
-  state.complications.splice(i, 1);
-  renderComplications();
+// ══════════════════════════════════════════════════════════════
+// NIVEAU
+// ══════════════════════════════════════════════════════════════
+
+function changeLevel(delta, event) {
+  const step = (event && event.shiftKey) ? delta * 10 : delta;
+  state.level = Math.max(1, (state.level || 1) + step);
+  const el = document.getElementById('level-display');
+  if (el) el.textContent = state.level;
+  // Synchronise le champ hidden utilisé par updatePreview()
+  const hidden = document.getElementById('f-level');
+  if (hidden) hidden.value = state.level;
   updatePreview();
 }
 
-// ── Preview ───────────────────────────────────────────────────
+
+// ══════════════════════════════════════════════════════════════
+// PREVIEW
+// ══════════════════════════════════════════════════════════════
+
 function updatePreview() {
-  // Synchronise l'état depuis les champs
   state.name       = document.getElementById('f-name').value;
   state.subtitle   = document.getElementById('f-sub').value;
-  state.rank       = parseInt(document.getElementById('f-rank').value);
-  state.maturity   = document.getElementById('f-maturity').value;
+  state.race_class = document.getElementById('f-race-class').value;
+  state.level      = parseInt(document.getElementById('f-level')?.value) || state.level || 1;
   state.background = document.getElementById('f-background')?.value || state.background || '';
 
   const pubCb = document.getElementById('f-public');
@@ -349,13 +296,15 @@ function updatePreview() {
       pubCb.checked ? t('share_code_active') : t('share_code_inactive');
   }
   _updateShareCodeBox();
-  updateAptPtsDisplay();
 
-  // Délègue le rendu HTML à game-system.js
   document.getElementById('preview-content').innerHTML = renderCharSheet(state);
 }
 
-// ── Save / Share ──────────────────────────────────────────────
+
+// ══════════════════════════════════════════════════════════════
+// SAVE / SHARE
+// ══════════════════════════════════════════════════════════════
+
 function saveChar() { saveCharToDB(); }
 
 function shareChar() {
@@ -373,7 +322,11 @@ function copyShareCode() {
     .catch(() => prompt(t('share_code_prompt_short'), code));
 }
 
-// ── Mobile tabs ───────────────────────────────────────────────
+
+// ══════════════════════════════════════════════════════════════
+// MOBILE TABS
+// ══════════════════════════════════════════════════════════════
+
 function switchMobTab(tab) {
   const form    = document.getElementById('editor-form');
   const preview = document.getElementById('preview-panel');
@@ -387,4 +340,10 @@ function switchMobTab(tab) {
     form.classList.add('mob-hidden');      preview.classList.remove('mob-hidden');
     btnForm?.classList.remove('active');   btnPrev?.classList.add('active');
   }
+}
+
+// ── Utilitaire (aussi défini dans game-system.js, dupliqué ici
+//    pour être sûr que l'éditeur y ait accès) ─────────────────
+function _uid() {
+  return Math.random().toString(36).slice(2, 10);
 }
