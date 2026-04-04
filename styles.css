@@ -177,7 +177,7 @@ html, body {
   display: inline-block; font-family: var(--font-mono); font-size: 10px;
   background: rgba(124,140,255,0.10); color: var(--accent);
   border: 1px solid rgba(124,140,255,0.20);
-  padding: 1px 7px; border-radius: 4px; margin-bottom: 12px;
+  padding: 1px 7px; border-radius: 4px;
 }
 .char-card .card-attrs { display: flex; gap: 12px; }
 .card-attr     { text-align: center; }
