@@ -21,7 +21,7 @@
 .card-char-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 2px;
   margin-top: 10px;
 }
 
@@ -222,5 +222,5 @@
 
 @media (max-width: 480px) {
   .apt-preview-grid { grid-template-columns: 1fr; }
-  .card-char-chip   { min-width: 40px; padding: 4px 6px; }
+  .card-char-chip   { padding: 4px 6px; }
 }
