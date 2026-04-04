@@ -31,6 +31,17 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(PRECACHE_ASSETS))
+      .then(async cache => {
+        await Promise.allSettled(
+          PRECACHE_ASSETS.map(async asset => {
+            try {
+              await cache.add(new Request(asset, { cache: 'reload' }));
+            } catch (error) {
+              console.warn('[SW] Pré-cache ignoré (asset indisponible):', asset, error);
+            }
+          })
+        );
+      })
       .then(() => self.skipWaiting())
   );
 });
