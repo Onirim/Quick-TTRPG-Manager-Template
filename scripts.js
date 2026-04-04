@@ -213,7 +213,8 @@ async function followCharByCode(code) {
   if (!code.trim()) return;
   const clean = code.trim().toUpperCase();
   const { data, error } = await sb.from('characters')
-    .select('id, name, user_id, is_public').eq('share_code', clean).eq('is_public', true).single();
+    .select('id, name, user_id, is_public')
+    .eq('share_code', clean).eq('is_public', true).single();
   if (error || !data) { showToast(t('toast_char_not_found')); return; }
   if (data.user_id === currentUser.id) { showToast(t('toast_char_own')); return; }
   if (followedIds.includes(data.id))  { showToast(t('toast_char_already_followed')); return; }
@@ -223,23 +224,33 @@ async function followCharByCode(code) {
   if (insertError) { showToast(t('toast_char_follow_error')); return; }
  
   followedIds.push(data.id);
- 
-  // ── NOUVEAU : sync des tags du propriétaire ───────────────
-  await syncOwnerTagsToMe('char', data.id);
-  // ─────────────────────────────────────────────────────────
- 
+  await syncOwnerTagsToMe('char', data.id);   // ← sync tags propriétaire
   await loadFollowedCharsFromDB();
-  await loadTagsFromDB();                 // recharge allTags avec les nouveaux tags créés
+  await loadTagsFromDB();
   document.getElementById('follow-code-input').value = '';
   renderList();
   showToast(ti('toast_char_added', { name: data.name }));
 }
 
 async function unfollowChar(charId) {
+  // 1. Supprime les tags locaux liés à ce personnage
+  await sb.from('followed_character_tags')
+    .delete()
+    .eq('user_id', currentUser.id)
+    .eq('character_id', charId);
+ 
+  // 2. Désabonnement
   await sb.from('followed_characters')
     .delete().eq('user_id', currentUser.id).eq('character_id', charId);
+ 
   followedIds = followedIds.filter(id => id !== charId);
   delete followedChars[charId];
+  delete followedTagMap[charId];
+ 
+  // 3. Purge les tags orphelins dans `tags`
+  await cleanupOrphanTags('char');
+  await loadTagsFromDB();   // rafraîchit allTags + charTagMap + followedTagMap
+ 
   renderList();
   showToast(t('toast_char_unfollowed'));
 }
