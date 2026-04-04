@@ -19,6 +19,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="generic-editor.css" />
 <link rel="stylesheet" href="chronicles.css" />
 <link rel="stylesheet" href="documents.css" />
 <link rel="stylesheet" href="campaigns.css" />
@@ -234,7 +235,12 @@
         <button id="mob-tab-form" class="active" onclick="switchMobTab('form')" data-i18n="editor_mobile_edit">✏️ Éditer</button>
         <button id="mob-tab-preview" onclick="switchMobTab('preview')" data-i18n="editor_mobile_preview">👁 Aperçu</button>
       </div>
+      <!-- ══════════════════════════════════════════════════════════
+     ÉDITEUR — FORMULAIRE GÉNÉRIQUE
+     Remplace le contenu de <div id="editor-form"> dans index.html
+     ═══════════════════════════════════════════════════════════ -->
       <div id="editor-form">
+      
         <!-- Illustration -->
         <div class="form-section">
           <div class="form-section-title" data-i18n="editor_section_illus">Illustration</div>
@@ -249,8 +255,12 @@
             </div>
             <img id="illus-preview-img" style="display:none">
             <div class="illus-overlay" id="illus-overlay">
-              <button class="illus-overlay-btn" onclick="event.stopPropagation();document.getElementById('illus-input').click()" data-i18n="editor_illus_change">Changer</button>
-              <button class="illus-overlay-btn danger" onclick="event.stopPropagation();removeIllustration()" data-i18n="editor_illus_remove">Supprimer</button>
+              <button class="illus-overlay-btn"
+                onclick="event.stopPropagation();document.getElementById('illus-input').click()"
+                data-i18n="editor_illus_change">Changer</button>
+              <button class="illus-overlay-btn danger"
+                onclick="event.stopPropagation();removeIllustration()"
+                data-i18n="editor_illus_remove">Supprimer</button>
             </div>
             <div class="illus-uploading" id="illus-uploading">
               <div class="spinner"></div>
@@ -262,133 +272,109 @@
             <input type="range" id="illus-pos-slider" min="0" max="100" value="0"
               oninput="updateIllusPosition(this.value)">
           </div>
-          <input type="file" id="illus-input" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadIllustration(this)">
+          <input type="file" id="illus-input"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            style="display:none" onchange="uploadIllustration(this)">
         </div>
-
+      
         <!-- Identité -->
         <div class="form-section">
           <div class="form-section-title" data-i18n="editor_section_identity">Identité</div>
+      
           <div class="field">
             <label data-i18n="editor_field_name">Nom du personnage</label>
             <input type="text" id="f-name"
               data-i18n="editor_field_name_ph" data-i18n-attr="placeholder"
-              placeholder="Ex: Kitsune" oninput="updatePreview()">
+              placeholder="Ex : Aragorn"
+              oninput="updatePreview()">
           </div>
+      
           <div class="field">
-            <label data-i18n="editor_field_subtitle">Identité réelle</label>
+            <label data-i18n="editor_field_subtitle">Titre / Occupation</label>
             <input type="text" id="f-sub"
               data-i18n="editor_field_subtitle_ph" data-i18n-attr="placeholder"
-              placeholder="Ex: Jane Doe, lycéenne de 16 ans" oninput="updatePreview()">
+              placeholder="Ex : Guerrier, Mage, Voleur…"
+              oninput="updatePreview()">
           </div>
+      
           <div class="field">
-            <label data-i18n="editor_field_rank">Rang de puissance initial</label>
-            <select id="f-rank" onchange="updateRankMax(); updatePreview()">
-              <option value="1" data-i18n="rank_1">Rang 1 — Civils (9 pts)</option>
-              <option value="2" data-i18n="rank_2">Rang 2 — Flics & Voyous (17 pts)</option>
-              <option value="3" data-i18n="rank_3">Rang 3 — Agents spéciaux (24 pts)</option>
-              <option value="4" data-i18n="rank_4">Rang 4 — Super héro mineur (32 pts)</option>
-              <option value="5" selected data-i18n="rank_5">Rang 5 — Super héro débutant (39 pts)</option>
-              <option value="6" data-i18n="rank_6">Rang 6 — Super héro compétent (47 pts)</option>
-              <option value="7" data-i18n="rank_7">Rang 7 — Super héro reconnu (54 pts)</option>
-              <option value="8" data-i18n="rank_8">Rang 8 — Super héro puissant (62 pts)</option>
-              <option value="9" data-i18n="rank_9">Rang 9 — Super héro majeur (69 pts)</option>
-              <option value="10" data-i18n="rank_10">Rang 10 — Plus puissants sur Terre (77 pts)</option>
-              <option value="11" data-i18n="rank_11">Rang 11+ — Cosmique (84+ pts)</option>
-            </select>
+            <label data-i18n="editor_field_race_class">Race / Classe</label>
+            <input type="text" id="f-race-class"
+              data-i18n="editor_field_race_class_ph" data-i18n-attr="placeholder"
+              placeholder="Ex : Elfe Rôdeur…"
+              oninput="updatePreview()">
           </div>
+      
+          <!-- Niveau -->
           <div class="field">
-            <label data-i18n="editor_field_maturity">Maturité initiale</label>
-            <select id="f-maturity" onchange="updatePreview()">
-              <option value="adolescent" data-i18n="maturity_adolescent">Adolescent (12 pts d'aptitudes)</option>
-              <option value="adulte" selected data-i18n="maturity_adulte">Adulte (16 pts d'aptitudes)</option>
-              <option value="veteran" data-i18n="maturity_veteran">Vétéran (20 pts d'aptitudes)</option>
-            </select>
+            <label data-i18n="editor_field_level">Niveau</label>
+            <div class="level-ctrl">
+              <span class="lbl" data-i18n="editor_field_level">Niveau</span>
+              <div class="score-ctrl">
+                <button onclick="changeLevel(-1,event)">−</button>
+                <div class="score-val" id="level-display"
+                  style="font-size:20px;min-width:40px">1</div>
+                <button onclick="changeLevel(1,event)">+</button>
+              </div>
+            </div>
+            <!-- Champ hidden synchronisé pour updatePreview() -->
+            <input type="hidden" id="f-level" value="1">
           </div>
-          <div class="field" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0">
+      
+          <!-- Partage public -->
+          <div class="field"
+            style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0">
             <label style="margin-bottom:0" data-i18n="editor_field_public">Partage public</label>
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:0">
-              <input type="checkbox" id="f-public" onchange="updatePreview()" style="width:auto;accent-color:var(--accent)">
+              <input type="checkbox" id="f-public" onchange="updatePreview()"
+                style="width:auto;accent-color:var(--accent)">
               <span style="font-size:12px;color:var(--text3)" id="public-label">Privé</span>
             </label>
           </div>
           <div class="share-code-box" id="share-code-box" style="display:none">
             <span class="code" id="share-code-val">—</span>
             <button onclick="copyShareCode()" title="Copier le code">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13">
-                <rect x="5" y="5" width="8" height="8" rx="1"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"
+                width="13" height="13">
+                <rect x="5" y="5" width="8" height="8" rx="1"/>
+                <path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/>
               </svg>
               <span data-i18n="share_copy_btn">Copier</span>
             </button>
           </div>
         </div>
-
-        <!-- Attributs -->
+      
+        <!-- Caractéristiques -->
         <div class="form-section">
-          <div class="form-section-title" data-i18n="editor_section_attrs">Attributs</div>
-          <div class="pts-bar">
-            <span class="pts-label" data-i18n="editor_pts_hero">Points de héros</span>
-            <span class="pts-value" id="pts-display">0 / 39</span>
+          <div class="form-section-title" data-i18n="editor_section_characteristics">Caractéristiques</div>
+          <div class="section-hint" data-i18n="editor_char_max_hint">(max 6 visibles sur la carte)</div>
+          <div class="section-hint" style="margin-bottom:8px" data-i18n="editor_char_score_hint">
+            Shift+clic : ±10
           </div>
-          <div class="attr-row">
-            <div class="attr-name"><span data-i18n="editor_attr_energy">Énergie</span> <span style="color:var(--text3);font-size:11px" data-i18n="editor_attr_energy_cost">(2 pts/+1)</span></div>
-            <div class="attr-ctrl">
-              <button onclick="changeAttr('e',-1)">−</button>
-              <div class="attr-val e" id="val-e">1</div>
-              <button onclick="changeAttr('e',1)">+</button>
-              <div class="attr-cost" id="cost-e">2 pts</div>
-            </div>
-          </div>
-          <div class="attr-row">
-            <div class="attr-name"><span data-i18n="editor_attr_recovery">Récupération</span> <span style="color:var(--text3);font-size:11px" data-i18n="editor_attr_recovery_cost">(3 pts/+1)</span></div>
-            <div class="attr-ctrl">
-              <button onclick="changeAttr('r',-1)">−</button>
-              <div class="attr-val r" id="val-r">1</div>
-              <button onclick="changeAttr('r',1)">+</button>
-              <div class="attr-cost" id="cost-r">3 pts</div>
-            </div>
-          </div>
-          <div class="attr-row">
-            <div class="attr-name"><span data-i18n="editor_attr_vigor">Vigueur</span> <span style="color:var(--text3);font-size:11px" data-i18n="editor_attr_vigor_cost">(1 pt/+1)</span></div>
-            <div class="attr-ctrl">
-              <button onclick="changeAttr('v',-1)">−</button>
-              <div class="attr-val v" id="val-v">1</div>
-              <button onclick="changeAttr('v',1)">+</button>
-              <div class="attr-cost" id="cost-v">1 pt</div>
-            </div>
-          </div>
+          <div id="characteristics-list"></div>
+          <button class="add-btn" onclick="addCharacteristic()"
+            data-i18n="editor_add_characteristic">+ Ajouter une caractéristique</button>
         </div>
-
-        <!-- Pouvoirs -->
+      
+        <!-- Compétences -->
         <div class="form-section">
-          <div class="form-section-title" data-i18n="editor_section_powers">Pouvoirs</div>
-          <div id="powers-list"></div>
-          <button class="add-btn" onclick="addPower()" data-i18n="editor_add_power">+ Ajouter un pouvoir</button>
-        </div>
-
-        <!-- Aptitudes -->
-        <div class="form-section">
-          <div class="form-section-title" data-i18n="editor_section_aptitudes">Aptitudes</div>
-          <div class="apt-pts-bar">
-            <span class="lbl" data-i18n="editor_pts_aptitudes">Points d'aptitudes</span>
-            <span class="val" id="apt-pts-display">0 / 16</span>
+          <div class="form-section-title" data-i18n="editor_section_skills">Compétences</div>
+          <div class="section-hint" style="margin-bottom:8px" data-i18n="editor_skill_score_hint">
+            Shift+clic : ±10
           </div>
-          <div class="aptitude-grid" id="aptitude-grid"></div>
+          <div id="skills-list"></div>
+          <button class="add-btn" onclick="addSkill()"
+            data-i18n="editor_add_skill">+ Ajouter une compétence</button>
         </div>
-
-        <!-- Traits -->
+      
+        <!-- Autres traits -->
         <div class="form-section">
-          <div class="form-section-title" data-i18n="editor_section_traits">Traits</div>
+          <div class="form-section-title" data-i18n="editor_section_traits">Autres traits</div>
           <div id="traits-list"></div>
-          <button class="add-btn" onclick="addTrait()" data-i18n="editor_add_trait">+ Ajouter un trait</button>
+          <button class="add-btn" onclick="addTrait()"
+            data-i18n="editor_add_trait">+ Ajouter un trait</button>
         </div>
-
-        <!-- Complications -->
-        <div class="form-section">
-          <div class="form-section-title"><span data-i18n="editor_section_complications">Complications</span> <span style="color:var(--text3);font-weight:400;font-size:10px" data-i18n="editor_complications_max">(max 5)</span></div>
-          <div id="complications-list"></div>
-          <button class="add-btn" id="add-compl-btn" onclick="addComplication()" data-i18n="editor_add_complication">+ Ajouter une complication</button>
-        </div>
-
+      
         <!-- Background -->
         <div class="form-section">
           <div class="form-section-title" data-i18n="editor_section_background">Background</div>
@@ -399,12 +385,13 @@
               oninput="state.background=this.value;updatePreview()"></textarea>
           </div>
         </div>
-
+      
         <!-- Tags -->
         <div class="form-section">
           <div class="form-section-title" data-i18n="editor_section_tags">Tags</div>
           <div style="position:relative">
-            <div class="tags-input-wrap" id="tags-input-wrap" onclick="document.getElementById('tag-text-input').focus()">
+            <div class="tags-input-wrap" id="tags-input-wrap"
+              onclick="document.getElementById('tag-text-input').focus()">
               <div id="tags-chips-container" style="display:contents"></div>
               <input type="text" id="tag-text-input"
                 data-i18n="editor_tag_ph" data-i18n-attr="placeholder"
@@ -417,38 +404,19 @@
             <div class="tags-autocomplete" id="tags-autocomplete" style="display:none"></div>
           </div>
         </div>
-
-        <!-- Expérience -->
-        <div class="form-section">
-          <div class="form-section-title" data-i18n="editor_section_xp">Expérience</div>
-          <div class="xp-row">
-            <div class="xp-field">
-              <div class="xp-label" data-i18n="editor_xp_hero_label">Pts de héros bonus</div>
-              <div class="xp-ctrl">
-                <button onclick="changeXP('hero', -1)">−</button>
-                <div class="xp-val" id="xp-hero-val">0</div>
-                <button onclick="changeXP('hero', 1)">+</button>
-              </div>
-              <div class="xp-detail" data-i18n="editor_xp_hero_detail">S'ajoutent au budget du rang</div>
-            </div>
-            <div class="xp-field">
-              <div class="xp-label" data-i18n="editor_xp_apt_label">Pts d'aptitudes bonus</div>
-              <div class="xp-ctrl">
-                <button onclick="changeXP('apt', -1)">−</button>
-                <div class="xp-val" id="xp-apt-val">0</div>
-                <button onclick="changeXP('apt', 1)">+</button>
-              </div>
-              <div class="xp-detail" data-i18n="editor_xp_apt_detail">S'ajoutent au budget de maturité</div>
-            </div>
-          </div>
-        </div>
-
+      
+        <!-- Actions -->
         <div class="form-actions">
-          <button class="btn-cancel" onclick="showView('list')" data-i18n="btn_cancel">Annuler</button>
-          <button class="btn-cancel" id="mob-preview-btn" onclick="switchMobTab('preview')" style="display:none" data-i18n="btn_preview">Aperçu</button>
-          <button class="btn-save" onclick="saveChar()" data-i18n="btn_save">Sauvegarder</button>
+          <button class="btn-cancel" onclick="showView('list')"
+            data-i18n="btn_cancel">Annuler</button>
+          <button class="btn-cancel" id="mob-preview-btn"
+            onclick="switchMobTab('preview')" style="display:none"
+            data-i18n="btn_preview">Aperçu</button>
+          <button class="btn-save" onclick="saveChar()"
+            data-i18n="btn_save">Sauvegarder</button>
         </div>
-      </div>
+      
+      </div><!-- /editor-form -->
 
       <!-- Preview panel -->
       <div id="preview-panel">
