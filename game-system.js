@@ -20,14 +20,14 @@ function freshState() {
     name:                  '',
     subtitle:              '',      // titre / occupation
     race_class:            '',      // race / classe
-    level:                 1,
+    level:                 0,       // 0 = pas de niveau affiché
     is_public:             false,
     illustration_url:      '',
     illustration_position: 0,
     tags:                  [],
     characteristics:       [],     // [{ id, name, trigram, score }]
     skills:                [],     // [{ id, name, score }]
-    traits:                [],     // [{ id, type, name, detail, score }]
+    traits:                [],     // [{ id, name, score, detail }]
     background:            '',
   };
 }
@@ -39,7 +39,6 @@ function _uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// Clamp numérique
 function _clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
@@ -50,17 +49,17 @@ function _clamp(v, min, max) {
 // ══════════════════════════════════════════════════════════════
 
 function renderCharCardBody(c) {
-  // Race/classe + niveau
+  // Race/classe + niveau (niveau masqué si 0)
   const rcTag = c.race_class
     ? `<span class="card-rc-tag">${esc(c.race_class)}</span>` : '';
-  const lvlTag = c.level !== undefined
+  const lvlTag = c.level !== undefined && c.level !== 0 && c.level !== null
     ? `<span class="card-rank">${t('card_level')}${c.level}</span>` : '';
 
-  // Jusqu'à 6 caractéristiques
-  const chars6 = (c.characteristics || []).slice(0, 6);
-  const charsHtml = chars6.length
+  // Toutes les caractéristiques (pas de limite d'affichage)
+  const chars = (c.characteristics || []);
+  const charsHtml = chars.length
     ? `<div class="card-char-row">
-        ${chars6.map(ch => `
+        ${chars.map(ch => `
           <div class="card-char-chip">
             <div class="card-char-trigram">${esc(ch.trigram || '???')}</div>
             <div class="card-char-score">${ch.score ?? 0}</div>
@@ -95,17 +94,21 @@ function renderCharSheet(data) {
   const rcTag = data.race_class
     ? `<span class="card-rc-tag" style="margin-top:8px">${esc(data.race_class)}</span>` : '';
 
+  // Niveau masqué si 0 ou null
+  const lvlBadge = data.level !== undefined && data.level !== 0 && data.level !== null
+    ? `<div class="preview-rank-badge">${t('card_level')}${data.level ?? 0}</div>` : '';
+
   const headerHtml = `
     <div class="preview-header">
       <div class="preview-name">${esc(data.name) || '—'}</div>
       ${data.subtitle ? `<div class="preview-sub">${esc(data.subtitle)}</div>` : ''}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
         ${rcTag}
-        <div class="preview-rank-badge">${t('card_level')}${data.level ?? 1}</div>
+        ${lvlBadge}
       </div>
     </div>`;
 
-  // ── Caractéristiques ──────────────────────────────────────
+  // ── Caractéristiques (toutes, sans limite) ─────────────────
   const chars = data.characteristics || [];
   const charsHtml = chars.length ? `
     <div class="preview-section-title">${t('section_characteristics')}</div>
@@ -130,30 +133,20 @@ function renderCharSheet(data) {
         </div>`).join('')}
     </div>` : '';
 
-  // ── Autres traits ─────────────────────────────────────────
+  // ── Traits (sans type, juste nom + score + description) ───
   const traits = data.traits || [];
-  // Regroupe par type
-  const traitsByType = {};
-  traits.forEach(tr => {
-    const key = tr.type || t('trait_type_default');
-    if (!traitsByType[key]) traitsByType[key] = [];
-    traitsByType[key].push(tr);
-  });
-  const traitsHtml = Object.keys(traitsByType).length ? `
+  const traitsHtml = traits.length ? `
     <div class="preview-section-title">${t('section_traits')}</div>
     <div class="compl-preview">
-      ${Object.entries(traitsByType).map(([type, list]) => `
-        <div style="margin-bottom:10px">
-          <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
-            color:var(--text3);margin-bottom:5px">${esc(type)}</div>
-          ${list.map(tr => `
-            <div class="compl-chip">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <span>${esc(tr.name)}</span>
-                ${tr.score ? `<span style="font-family:var(--font-mono);font-size:12px;color:var(--accent);font-weight:700">${tr.score}</span>` : ''}
-              </div>
-              ${tr.detail ? `<div class="compl-detail">${esc(tr.detail)}</div>` : ''}
-            </div>`).join('')}
+      ${traits.map(tr => `
+        <div class="compl-chip">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span>${esc(tr.name)}</span>
+            ${tr.score !== '' && tr.score !== undefined && tr.score !== null
+              ? `<span style="font-family:var(--font-mono);font-size:12px;color:var(--accent);font-weight:700">${tr.score}</span>`
+              : ''}
+          </div>
+          ${tr.detail ? `<div class="compl-detail">${esc(tr.detail)}</div>` : ''}
         </div>`).join('')}
     </div>` : '';
 
@@ -185,7 +178,7 @@ const GAME_I18N = {
     // Sections fiche
     section_characteristics: 'Caractéristiques',
     section_skills:          'Compétences',
-    section_traits:          'Autres traits',
+    section_traits:          'Traits',
     section_background:      'Background',
 
     // Éditeur — caractéristiques
@@ -195,7 +188,6 @@ const GAME_I18N = {
     editor_char_score_label:          'Score',
     editor_char_score_hint:           'Shift+clic : ±10',
     editor_add_characteristic:        '+ Ajouter une caractéristique',
-    editor_char_max_hint:             '(max 6 visibles sur la carte)',
 
     // Éditeur — compétences
     editor_section_skills:    'Compétences',
@@ -204,13 +196,11 @@ const GAME_I18N = {
     editor_add_skill:         '+ Ajouter une compétence',
 
     // Éditeur — traits
-    editor_section_traits:    'Autres traits',
-    editor_trait_type_ph:     'Type (ex : Don, Défaut, Équipement…)',
+    editor_section_traits:    'Traits',
     editor_trait_name_ph:     'Nom du trait',
     editor_trait_detail_ph:   'Description ou détail (optionnel)',
     editor_trait_score_hint:  'Valeur (optionnel)',
     editor_add_trait:         '+ Ajouter un trait',
-    trait_type_default:       'Trait',
 
     // Éditeur — background
     editor_section_background: 'Background',
@@ -232,7 +222,7 @@ const GAME_I18N = {
 
     section_characteristics: 'Characteristics',
     section_skills:          'Skills',
-    section_traits:          'Other Traits',
+    section_traits:          'Traits',
     section_background:      'Background',
 
     editor_section_characteristics:   'Characteristics',
@@ -241,20 +231,17 @@ const GAME_I18N = {
     editor_char_score_label:          'Score',
     editor_char_score_hint:           'Shift+click: ±10',
     editor_add_characteristic:        '+ Add a characteristic',
-    editor_char_max_hint:             '(max 6 visible on the card)',
 
     editor_section_skills:    'Skills',
     editor_skill_name_ph:     'Skill name',
     editor_skill_score_hint:  'Shift+click: ±10',
     editor_add_skill:         '+ Add a skill',
 
-    editor_section_traits:    'Other Traits',
-    editor_trait_type_ph:     'Type (e.g. Gift, Flaw, Equipment…)',
+    editor_section_traits:    'Traits',
     editor_trait_name_ph:     'Trait name',
     editor_trait_detail_ph:   'Description or detail (optional)',
     editor_trait_score_hint:  'Value (optional)',
     editor_add_trait:         '+ Add a trait',
-    trait_type_default:       'Trait',
 
     editor_section_background: 'Background',
     editor_background_ph:      'Character history, origins, motivations…',

@@ -17,7 +17,8 @@ function editChar(id, dataOverride) {
   if (!state.skills)          state.skills          = [];
   if (!state.traits)          state.traits          = [];
   if (!state.tags)            state.tags            = [];
-  if (!state.level)           state.level           = 1;
+  // Niveau : 0 est valide (pas de niveau)
+  if (state.level === undefined || state.level === null) state.level = 0;
   if (editingId && charTagMap[editingId]) {
     state.tags = charTagMap[editingId]
       .map(tid => allTags.find(tg => tg.id === tid))
@@ -28,12 +29,12 @@ function editChar(id, dataOverride) {
 }
 
 function populateEditor() {
-  document.getElementById('f-name').value      = state.name || '';
-  document.getElementById('f-sub').value       = state.subtitle || '';
+  document.getElementById('f-name').value       = state.name || '';
+  document.getElementById('f-sub').value        = state.subtitle || '';
   document.getElementById('f-race-class').value = state.race_class || '';
-  document.getElementById('f-level').value      = state.level ?? 1;
+  document.getElementById('f-level').value      = state.level ?? 0;
   const lvlDisplay = document.getElementById('level-display');
-  if (lvlDisplay) lvlDisplay.textContent = state.level ?? 1;
+  if (lvlDisplay) lvlDisplay.textContent = state.level ?? 0;
 
   const pubCb = document.getElementById('f-public');
   if (pubCb) {
@@ -110,7 +111,6 @@ function characteristicHTML(ch, i) {
 }
 
 function addCharacteristic() {
-  if ((state.characteristics || []).length >= 12) return;
   state.characteristics.push({ id: _uid(), name: '', trigram: '', score: 0 });
   renderCharacteristics();
   updatePreview();
@@ -169,7 +169,7 @@ function removeSkill(i) {
 
 
 // ══════════════════════════════════════════════════════════════
-// AUTRES TRAITS
+// TRAITS (sans champ "type")
 // ══════════════════════════════════════════════════════════════
 
 function renderTraits() {
@@ -183,19 +183,13 @@ function traitHTML(tr, i) {
     <div class="generic-entry-row" style="gap:6px">
       <input type="text"
         class="generic-input"
-        placeholder="${t('editor_trait_type_ph')}"
-        value="${esc(tr.type || '')}"
-        style="width:140px;flex-shrink:0"
-        oninput="state.traits[${i}].type=this.value;updatePreview()">
-      <input type="text"
-        class="generic-input"
         placeholder="${t('editor_trait_name_ph')}"
         value="${esc(tr.name || '')}"
         style="flex:1"
         oninput="state.traits[${i}].name=this.value;updatePreview()">
       <div class="score-ctrl">
         <button onclick="changeScore('traits',${i},-1,event)">−</button>
-        <div class="score-val trait-score">${tr.score || '—'}</div>
+        <div class="score-val trait-score">${tr.score !== '' && tr.score !== undefined && tr.score !== null ? tr.score : '—'}</div>
         <button onclick="changeScore('traits',${i},1,event)">+</button>
       </div>
       <button class="rm-btn" onclick="removeTrait(${i})">
@@ -213,7 +207,7 @@ function traitHTML(tr, i) {
 }
 
 function addTrait() {
-  state.traits.push({ id: _uid(), type: '', name: '', detail: '', score: '' });
+  state.traits.push({ id: _uid(), name: '', detail: '', score: '' });
   renderTraits();
   updatePreview();
 }
@@ -226,9 +220,10 @@ function removeTrait(i) {
 
 
 // ══════════════════════════════════════════════════════════════
-// SCORE UNIVERSEL (caractéristiques, compétences, traits)
+// SCORE UNIVERSEL
 // Shift+clic → ±10 ; clic normal → ±1
-// Pour les traits : le score est optionnel (chaîne vide = pas de score)
+// Caractéristiques et compétences : peuvent être négatifs
+// Traits : score optionnel (chaîne vide = pas de score)
 // ══════════════════════════════════════════════════════════════
 
 function changeScore(section, idx, delta, event) {
@@ -237,23 +232,25 @@ function changeScore(section, idx, delta, event) {
 
   if (section === 'traits') {
     // Score optionnel : si vide, on démarre à 0
-    const current = item.score === '' || item.score === undefined ? 0 : parseInt(item.score) || 0;
+    const current = item.score === '' || item.score === undefined || item.score === null
+      ? 0 : parseInt(item.score) || 0;
     const nv = current + step;
     item.score = nv === 0 ? '' : nv;
   } else {
-    item.score = Math.max(0, (parseInt(item.score) || 0) + step);
+    // Caractéristiques et compétences : pas de minimum (négatif autorisé)
+    item.score = (parseInt(item.score) || 0) + step;
   }
 
-  // Rafraîchit uniquement la valeur affichée (évite de redessiner tout le DOM)
-  const container = document.getElementById(
-    section === 'characteristics' ? `char-entry-${idx}` : null
-  );
+  // Rafraîchit le DOM localement
   const scoreEl = event?.target?.closest('.generic-entry')?.querySelector('.score-val');
   if (scoreEl) {
-    scoreEl.textContent = item.score === '' ? '—' : item.score;
+    if (section === 'traits') {
+      scoreEl.textContent = item.score === '' || item.score === undefined ? '—' : item.score;
+    } else {
+      scoreEl.textContent = item.score;
+    }
   }
 
-  // Pour les caractéristiques, re-render complet (met aussi à jour le preview)
   if (section === 'characteristics') renderCharacteristics();
   if (section === 'skills')          renderSkills();
   if (section === 'traits')          renderTraits();
@@ -263,15 +260,15 @@ function changeScore(section, idx, delta, event) {
 
 
 // ══════════════════════════════════════════════════════════════
-// NIVEAU
+// NIVEAU (0 = pas de niveau ; peut aller en négatif si besoin)
 // ══════════════════════════════════════════════════════════════
 
 function changeLevel(delta, event) {
   const step = (event && event.shiftKey) ? delta * 10 : delta;
-  state.level = Math.max(1, (state.level || 1) + step);
+  // Niveau minimum : 0 (pas de niveau négatif pour le niveau)
+  state.level = Math.max(0, (state.level ?? 0) + step);
   const el = document.getElementById('level-display');
   if (el) el.textContent = state.level;
-  // Synchronise le champ hidden utilisé par updatePreview()
   const hidden = document.getElementById('f-level');
   if (hidden) hidden.value = state.level;
   updatePreview();
@@ -286,7 +283,7 @@ function updatePreview() {
   state.name       = document.getElementById('f-name').value;
   state.subtitle   = document.getElementById('f-sub').value;
   state.race_class = document.getElementById('f-race-class').value;
-  state.level      = parseInt(document.getElementById('f-level')?.value) || state.level || 1;
+  state.level      = parseInt(document.getElementById('f-level')?.value) ?? 0;
   state.background = document.getElementById('f-background')?.value || state.background || '';
 
   const pubCb = document.getElementById('f-public');
@@ -342,8 +339,7 @@ function switchMobTab(tab) {
   }
 }
 
-// ── Utilitaire (aussi défini dans game-system.js, dupliqué ici
-//    pour être sûr que l'éditeur y ait accès) ─────────────────
+// ── Utilitaire ────────────────────────────────────────────────
 function _uid() {
   return Math.random().toString(36).slice(2, 10);
 }
